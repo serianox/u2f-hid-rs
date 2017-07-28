@@ -78,7 +78,30 @@ impl Read for Device {
 
 impl Write for Device {
     fn write(&mut self, bytes: &[u8]) -> io::Result<usize> {
-        unsafe { set_report(self.device_ref, kIOHIDReportTypeOutput, bytes) }
+        let report_id = bytes[0] as i64;
+        // Don't send report id if we're not using numbered reports.
+        let data = if report_id == 0 {
+            &bytes[1..]
+        } else {
+            &bytes[..]
+        };
+
+        let result = unsafe {
+            IOHIDDeviceSetReport(
+                self.device_ref,
+                kIOHIDReportTypeOutput,
+                report_id,
+                data.as_ptr(),
+                data.len() as CFIndex,
+            )
+        };
+        if result != 0 {
+            warn!("IOHIDDeviceSetReport failure = {0:X}", result);
+            return Err(io::Error::from_raw_os_error(result));
+        }
+        trace!("IOHIDDeviceSetReport success = {0:X}", result);
+
+        Ok(data.len())
     }
 
     // USB HID writes don't buffer, so this will be a nop.
@@ -95,30 +118,4 @@ impl U2FDevice for Device {
     fn set_cid(&mut self, cid: &[u8; 4]) {
         self.cid.clone_from(cid);
     }
-}
-
-unsafe fn set_report(
-    device_ref: IOHIDDeviceRef,
-    report_type: IOHIDReportType,
-    bytes: &[u8],
-) -> io::Result<usize> {
-    let report_id = bytes[0] as i64;
-    let mut data = bytes.as_ptr();
-    let mut length = bytes.len() as CFIndex;
-
-    if report_id == 0x0 {
-        // Not using numbered reports, so don't send the report number
-        length = length - 1;
-        data = data.offset(1);
-    }
-
-    let result = IOHIDDeviceSetReport(device_ref, report_type, report_id, data, length);
-    if result != 0 {
-        warn!("set_report sending failure = {0:X}", result);
-
-        return Err(io::Error::from_raw_os_error(result));
-    }
-    trace!("set_report sending success = {0:X}", result);
-
-    Ok(length as usize)
 }

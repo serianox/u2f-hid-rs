@@ -55,11 +55,7 @@ impl IOHIDDeviceMatcher {
             )
         };
 
-        Self {
-            dict: dict,
-            keys: keys,
-            values: values,
-        }
+        Self { dict, keys, values }
     }
 
     fn cf_number(number: i32) -> CFNumberRef {
@@ -125,7 +121,7 @@ impl IOHIDManager {
             IOHIDManagerScheduleWithRunLoop(manager, CFRunLoopGetCurrent(), kCFRunLoopDefaultMode)
         };
 
-        Ok(Self { manager: manager })
+        Ok(Self { manager })
     }
 
     pub fn get(&self) -> IOHIDManagerRef {

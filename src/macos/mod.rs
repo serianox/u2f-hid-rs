@@ -54,7 +54,7 @@ impl PlatformManager {
                 let mut devices = HashMap::new();
                 let monitor = try_or!(Monitor::new(), |e| { callback.call(Err(e)); });
 
-                'top: while alive() && monitor.alive() {
+                while alive() && monitor.alive() {
                     for event in monitor.events() {
                         process_event(&mut devices, event);
                     }
@@ -64,13 +64,6 @@ impl PlatformManager {
                         if let Ok(bytes) = u2f_register(device, &challenge, &application) {
                             callback.call(Ok(bytes));
                             return;
-                        }
-
-                        // Check to see if monitor.events has any hotplug events that we'll need
-                        // to handle
-                        if monitor.events().size_hint().0 > 0 {
-                            debug!("Hotplug event; restarting loop");
-                            continue 'top;
                         }
                     }
 
@@ -107,7 +100,7 @@ impl PlatformManager {
                 let mut devices = HashMap::new();
                 let monitor = try_or!(Monitor::new(), |e| { callback.call(Err(e)); });
 
-                'top: while alive() && monitor.alive() {
+                while alive() && monitor.alive() {
                     for event in monitor.events() {
                         process_event(&mut devices, event);
                     }
@@ -147,13 +140,6 @@ impl PlatformManager {
                                     callback.call(Err(io_err("invalid key")));
                                     return;
                                 }
-                            }
-
-                            // Check to see if monitor.events has any hotplug events that we'll
-                            // need to handle
-                            if monitor.events().size_hint().0 > 0 {
-                                debug!("Hotplug event; restarting loop");
-                                continue 'top;
                             }
                         }
                     }
@@ -226,7 +212,8 @@ fn maybe_add_device(devs: &mut HashMap<IOHIDDeviceRef, Device>, device_ref: IOHI
     if let Err(_) = ping_device(&mut dev, random) {
         return;
     }
-    if let Err(_) = u2f_version_is_v2(&mut dev) {
+
+    if !u2f_version_is_v2(&mut dev).unwrap_or(false) {
         return;
     }
 

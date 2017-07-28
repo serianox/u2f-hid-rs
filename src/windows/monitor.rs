@@ -7,7 +7,8 @@ use std::thread;
 use std::time::Duration;
 
 use runloop::RunLoop;
-use super::winapi::DeviceInfoSet;
+use util::to_io_err;
+use winapi::DeviceInfoSet;
 
 pub fn io_err(msg: &str) -> io::Error {
     io::Error::new(io::ErrorKind::Other, msg)

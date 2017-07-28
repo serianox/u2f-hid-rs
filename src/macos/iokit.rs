@@ -4,6 +4,7 @@ extern crate core_foundation_sys;
 extern crate libc;
 
 use libc::c_void;
+use core_foundation_sys::set::CFSetRef;
 use core_foundation_sys::base::{CFIndex, CFAllocatorRef};
 use core_foundation_sys::string::CFStringRef;
 use core_foundation_sys::runloop::CFRunLoopRef;
@@ -17,10 +18,6 @@ pub type IOHIDManagerRef = *mut __IOHIDManager;
 pub type IOHIDManagerOptions = IOOptionBits;
 
 pub type IOHIDDeviceRef = *const __IOHIDDevice;
-pub type IOHIDDeviceCallback = extern "C" fn(context: *mut c_void,
-                                             result: IOReturn,
-                                             sender: *mut c_void,
-                                             device: IOHIDDeviceRef);
 
 pub type IOHIDReportType = IOOptionBits;
 pub type IOHIDReportCallback = extern "C" fn(context: *mut c_void,
@@ -46,24 +43,19 @@ pub struct __IOHIDDevice {
 }
 
 extern "C" {
+    // TODO
+    pub fn CFSetGetCount(theSet: CFSetRef) -> CFIndex;
+    pub fn CFSetGetValues(theSet: CFSetRef, values: *mut *const c_void);
+
     // IOHIDManager
     pub fn IOHIDManagerCreate(
         allocator: CFAllocatorRef,
         options: IOHIDManagerOptions,
     ) -> IOHIDManagerRef;
     pub fn IOHIDManagerSetDeviceMatching(manager: IOHIDManagerRef, matching: CFDictionaryRef);
-    pub fn IOHIDManagerRegisterDeviceMatchingCallback(
-        manager: IOHIDManagerRef,
-        callback: IOHIDDeviceCallback,
-        context: *mut c_void,
-    );
-    pub fn IOHIDManagerRegisterDeviceRemovalCallback(
-        manager: IOHIDManagerRef,
-        callback: IOHIDDeviceCallback,
-        context: *mut c_void,
-    );
     pub fn IOHIDManagerOpen(manager: IOHIDManagerRef, options: IOHIDManagerOptions) -> IOReturn;
     pub fn IOHIDManagerClose(manager: IOHIDManagerRef, options: IOHIDManagerOptions) -> IOReturn;
+    pub fn IOHIDManagerCopyDevices(manager: IOHIDManagerRef) -> CFSetRef;
     pub fn IOHIDManagerScheduleWithRunLoop(
         manager: IOHIDManagerRef,
         runLoop: CFRunLoopRef,

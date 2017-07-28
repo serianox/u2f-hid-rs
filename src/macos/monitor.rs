@@ -1,11 +1,15 @@
+use std::collections::HashSet;
 use std::io;
-use std::sync::mpsc::{channel, Sender, Receiver, TryIter};
+use std::iter::FromIterator;
+use std::sync::mpsc::{channel, Receiver, TryIter};
 use std::thread;
 
 use super::iohid::*;
 use super::iokit::*;
+use core_foundation_sys::base::*;
 use core_foundation_sys::runloop::*;
 use runloop::RunLoop;
+use util::to_io_err;
 
 extern crate log;
 extern crate libc;
@@ -29,12 +33,6 @@ impl Monitor {
 
         let thread = RunLoop::new(
             move |alive| -> io::Result<()> {
-                let tx_box = Box::new(tx);
-                let tx_ptr = Box::into_raw(tx_box) as *mut libc::c_void;
-
-                // This will keep `tx` alive only for the scope.
-                let _tx = unsafe { Box::from_raw(tx_ptr) };
-
                 // Create and initialize a scoped HID manager.
                 let manager = IOHIDManager::new()?;
 
@@ -42,25 +40,40 @@ impl Monitor {
                 let dict = IOHIDDeviceMatcher::new();
                 unsafe { IOHIDManagerSetDeviceMatching(manager.get(), dict.get()) };
 
-                // Register callbacks.
-                unsafe {
-                    IOHIDManagerRegisterDeviceMatchingCallback(
-                        manager.get(),
-                        Monitor::device_add_cb,
-                        tx_ptr,
-                    );
-                    IOHIDManagerRegisterDeviceRemovalCallback(
-                        manager.get(),
-                        Monitor::device_remove_cb,
-                        tx_ptr,
-                    );
-                }
+                let mut stored = HashSet::new();
 
                 // Run the Event Loop. CFRunLoopRunInMode() will dispatch HID
                 // input reports into the various callbacks
                 while alive() {
                     trace!("OSX Runloop running, handle={:?}", thread::current());
 
+                    // TODO
+                    let device_set = unsafe { IOHIDManagerCopyDevices(manager.get()) };
+                    if !device_set.is_null() {
+                        let num_devices = unsafe { CFSetGetCount(device_set) };
+                        let mut devices : Vec<IOHIDDeviceRef> = Vec::with_capacity(num_devices as usize);
+                        unsafe { CFSetGetValues(device_set, devices.as_mut_ptr() as *mut *const c_void); }
+                        unsafe { devices.set_len(num_devices as usize); }
+                        unsafe { CFRelease(device_set as *mut libc::c_void) };
+
+                        // TODO
+                        let devices = HashSet::from_iter(devices);
+
+                        // Remove devices that are gone.
+                        for id in stored.difference(&devices) {
+                            tx.send(Event::Remove(IOHIDDeviceID::from_ref(*id))).map_err(to_io_err)?;
+                        }
+
+                        // Add devices that were plugged in.
+                        for id in devices.difference(&stored) {
+                            tx.send(Event::Add(IOHIDDeviceID::from_ref(*id))).map_err(to_io_err)?;
+                        }
+
+                        // Remember the new set.
+                        stored = devices;
+                    }
+
+                    // TODO read some data ....
                     if unsafe { CFRunLoopRunInMode(kCFRunLoopDefaultMode, 0.1, 0) } ==
                         kCFRunLoopRunStopped
                     {
@@ -87,26 +100,6 @@ impl Monitor {
 
     pub fn alive(&self) -> bool {
         self.thread.alive()
-    }
-
-    extern "C" fn device_add_cb(
-        context: *mut c_void,
-        _: IOReturn,
-        _: *mut c_void,
-        device: IOHIDDeviceRef,
-    ) {
-        let tx = unsafe { &*(context as *mut Sender<Event>) };
-        let _ = tx.send(Event::Add(IOHIDDeviceID::from_ref(device)));
-    }
-
-    extern "C" fn device_remove_cb(
-        context: *mut c_void,
-        _: IOReturn,
-        _: *mut c_void,
-        device: IOHIDDeviceRef,
-    ) {
-        let tx = unsafe { &*(context as *mut Sender<Event>) };
-        let _ = tx.send(Event::Remove(IOHIDDeviceID::from_ref(device)));
     }
 }
 
