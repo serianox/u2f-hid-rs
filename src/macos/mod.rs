@@ -56,15 +56,21 @@ impl PlatformManager {
 
                 while alive() && monitor.alive() {
                     for event in monitor.events() {
+                        warn!("About to process_event");
                         process_event(&mut devices, event);
+                        warn!("Done to process_event");
                     }
 
                     for device in devices.values_mut() {
                         // Caller asked us to register, so the first token that does wins
+                        warn!("About to u2f_register");
                         if let Ok(bytes) = u2f_register(device, &challenge, &application) {
+                            warn!("About to callback");
                             callback.call(Ok(bytes));
+                            warn!("Done to callback");
                             return;
                         }
+                        warn!("Done to u2f_register");
                     }
 
                     thread::sleep(Duration::from_millis(100));
@@ -253,11 +259,12 @@ extern "C" fn read_new_data_cb(
         let tx: &mut Sender<Report> = &mut *(context as *mut Sender<Report>);
 
         trace!(
-            "read_new_data_cb type={} id={} report={:?} len={}",
+            "read_new_data_cb type={} id={} report={:?} len={} ctx={:?}",
             report_type,
             report_id,
             report,
-            report_len
+            report_len,
+            context
         );
 
         let mut report_obj = Report {
@@ -282,5 +289,7 @@ extern "C" fn read_new_data_cb(
             // properly later.
             warn!("Problem returning read_new_data_cb data for thread: {}", e);
         };
+
+        warn!("read_new_data_cb completed");
     }
 }

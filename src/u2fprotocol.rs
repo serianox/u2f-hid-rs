@@ -79,10 +79,14 @@ pub trait U2FDevice {
 ////////////////////////////////////////////////////////////////////////
 
 fn to_u8_array<T>(non_ptr: &T) -> &[u8] {
-    unsafe { slice::from_raw_parts(non_ptr as *const T as *const u8, mem::size_of::<T>()) }
+    trace!("to_u8_array enter");
+    let x = unsafe { slice::from_raw_parts(non_ptr as *const T as *const u8, mem::size_of::<T>()) };
+    trace!("to_u8_array exit");
+    x
 }
 
 fn from_u8_array<T>(arr: &[u8]) -> &T {
+    trace!("from_u8_array enter");
     if arr.len() > std::mem::size_of::<T>() {
         panic!(
             "from_u8_array attempting to overrun buffer, {} > {}",
@@ -90,7 +94,9 @@ fn from_u8_array<T>(arr: &[u8]) -> &T {
             std::mem::size_of::<T>()
         );
     }
-    unsafe { &*(arr.as_ptr() as *const T) }
+    let x = unsafe { &*(arr.as_ptr() as *const T) };
+    trace!("from_u8_array exit");
+    x
 }
 
 fn set_data(data: &mut [u8], itr: &mut std::slice::Iter<u8>, max: usize) {
@@ -210,6 +216,8 @@ where
     register_data.extend(challenge);
     register_data.extend(application);
 
+    trace!("u2f_register register_resp start");
+
     let register_resp = try!(send_apdu(
         dev,
         U2F_REGISTER,
@@ -217,11 +225,15 @@ where
         &register_data,
     ));
 
+    trace!("u2f_register register_resp completed");
+
     if register_resp.len() != 2 {
         // Real data, we're done
+        trace!("u2f_register register_resp!=2");
         return Ok(register_resp);
     }
 
+    trace!("u2f_register status_word_to_error");
     match status_word_to_error(register_resp[0], register_resp[1]) {
         None => Ok(Vec::new()),
         Some(e) => Err(e),
@@ -258,13 +270,17 @@ where
     sign_data.extend(key_handle);
 
     let flags = U2F_REQUEST_USER_PRESENCE;
+    trace!("u2f_sign sign_resp start");
     let sign_resp = send_apdu(dev, U2F_AUTHENTICATE, flags, &sign_data)?;
+    trace!("u2f_sign sign_resp completed");
 
     if sign_resp.len() != 2 {
         // Real data, let's bail out here
+        trace!("u2f_sign real data bail");
         return Ok(sign_resp);
     }
 
+    trace!("u2f_sign status_word_to_error");
     match status_word_to_error(sign_resp[0], sign_resp[1]) {
         None => Ok(Vec::new()),
         Some(e) => Err(e),
@@ -377,6 +393,10 @@ where
         datalen = (info_frame.bcnth as usize) << 8 | (info_frame.bcntl as usize);
         data = Vec::with_capacity(datalen);
 
+        if log_enabled!(log::LogLevel::Trace) {
+            trace!("USB recv info_frame: {:?} cmd={} bc={},{} len={}", info_frame.cid, info_frame.cmd, info_frame.bcnth, info_frame.bcntl, datalen);
+        }
+
         let clone_len: usize;
         if datalen < recvlen {
             clone_len = datalen;
@@ -387,9 +407,15 @@ where
     }
     sequence = 0;
     while recvlen < datalen {
+        trace!("Recv loop #{} {} < {}", sequence, recvlen, datalen);
         // Reset frame value
         frame = [0u8; HID_RPT_SIZE];
         dev.read(&mut frame)?;
+        if log_enabled!(log::LogLevel::Trace) {
+            let parts: Vec<String> = frame.iter().map(|byte| format!("{:02x}", byte)).collect();
+            trace!("USB read: seq#{} (rcvLen={}, dataLen={}): {}", sequence, recvlen, datalen, parts.join(""));
+        }
+
         let cont_frame: &U2FHIDCont;
         cont_frame = from_u8_array(&frame);
         if cont_frame.cid != dev.get_cid() {
@@ -409,6 +435,7 @@ where
         }
         recvlen += CONT_DATA_SIZE;
     }
+    trace!("Recv loop end, data: {:?}", data);
     Ok(data)
 }
 
@@ -446,7 +473,10 @@ where
     let header_raw: &[u8] = to_u8_array(&header);
     data_vec[0..U2FAPDUHEADER_SIZE].clone_from_slice(&header_raw);
     data_vec[U2FAPDUHEADER_SIZE..(send.len() + U2FAPDUHEADER_SIZE)].clone_from_slice(&send);
-    sendrecv(dev, U2FHID_MSG, &data_vec)
+    trace!("send_apdu about to sendrecv");
+    let x = sendrecv(dev, U2FHID_MSG, &data_vec);
+    trace!("send_apdu sendrecv finished");
+    x
 }
 
 #[cfg(test)]
