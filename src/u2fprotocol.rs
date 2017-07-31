@@ -216,24 +216,24 @@ where
     register_data.extend(challenge);
     register_data.extend(application);
 
-    trace!("u2f_register register_resp start");
+    // trace!("u2f_register register_resp start");
 
-    let register_resp = try!(send_apdu(
+    let register_resp = send_apdu(
         dev,
         U2F_REGISTER,
         flags | U2F_REQUEST_USER_PRESENCE,
         &register_data,
-    ));
+    )?;
 
-    trace!("u2f_register register_resp completed");
+    // trace!("u2f_register register_resp completed");
 
     if register_resp.len() != 2 {
         // Real data, we're done
-        trace!("u2f_register register_resp!=2");
+        // trace!("u2f_register register_resp!=2"); // FIX
         return Ok(register_resp);
     }
 
-    trace!("u2f_register status_word_to_error");
+    // trace!("u2f_register status_word_to_error"); // IMPORTANT PRINT
     match status_word_to_error(register_resp[0], register_resp[1]) {
         None => Ok(Vec::new()),
         Some(e) => Err(e),
@@ -475,7 +475,7 @@ where
     data_vec[U2FAPDUHEADER_SIZE..(send.len() + U2FAPDUHEADER_SIZE)].clone_from_slice(&send);
     trace!("send_apdu about to sendrecv");
     let x = sendrecv(dev, U2FHID_MSG, &data_vec);
-    trace!("send_apdu sendrecv finished");
+    trace!("send_apdu sendrecv finished {:?}", x);
     x
 }
 
