@@ -79,10 +79,7 @@ pub trait U2FDevice {
 ////////////////////////////////////////////////////////////////////////
 
 fn to_u8_array<T>(non_ptr: &T) -> &[u8] {
-    trace!("to_u8_array enter");
-    let x = unsafe { slice::from_raw_parts(non_ptr as *const T as *const u8, mem::size_of::<T>()) };
-    trace!("to_u8_array exit");
-    x
+    unsafe { slice::from_raw_parts(non_ptr as *const T as *const u8, mem::size_of::<T>()) }
 }
 
 fn from_u8_array<T>(arr: &[u8]) -> &T {
@@ -349,7 +346,7 @@ where
                 data: [0; INIT_DATA_SIZE],
             };
             set_data(&mut uf.data, &mut data_itr, INIT_DATA_SIZE);
-            frame[1..].clone_from_slice(to_u8_array(&uf));
+            frame[1..].copy_from_slice(to_u8_array(&uf));
             init_sent = true;
         } else {
             let mut uf = U2FHIDCont {
@@ -359,7 +356,7 @@ where
             };
             set_data(&mut uf.data, &mut data_itr, CONT_DATA_SIZE);
             sequence += 1;
-            frame[1..].clone_from_slice(to_u8_array(&uf));
+            frame[1..].copy_from_slice(to_u8_array(&uf));
         }
 
         if log_enabled!(log::LogLevel::Trace) {
