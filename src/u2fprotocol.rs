@@ -325,25 +325,38 @@ where
         // index.
         let mut frame: [u8; HID_RPT_SIZE + 1] = [0; HID_RPT_SIZE + 1];
         if !init_sent {
-            let mut uf = U2FHIDInit {
-                cid: dev.get_cid(),
-                cmd: cmd,
-                bcnth: (send.len() >> 8) as u8,
-                bcntl: send.len() as u8,
-                data: [0; INIT_DATA_SIZE],
-            };
-            set_data(&mut uf.data, &mut data_itr, INIT_DATA_SIZE);
-            frame[1..].copy_from_slice(to_u8_array(&uf));
+            // let mut uf = U2FHIDInit {
+            //     cid: dev.get_cid(),
+            //     cmd: cmd,
+            //     bcnth: (send.len() >> 8) as u8,
+            //     bcntl: send.len() as u8,
+            //     data: [0; INIT_DATA_SIZE],
+            // };
+            // set_data(&mut uf.data, &mut data_itr, INIT_DATA_SIZE);
+            // frame[1..].copy_from_slice(to_u8_array(&uf));
+
+            frame[1..5].copy_from_slice(dev.get_cid().as_ref());
+            frame[5] = cmd;
+            frame[6] = (send.len() >> 8) as u8;
+            frame[7] = (send.len() & 0xff) as u8;
+
+            // frame[8..send.len()+8].copy_from_slice(send);
+            set_data(frame[8..INIT_DATA_SIZE+8].as_mut(), &mut data_itr, INIT_DATA_SIZE);
             init_sent = true;
         } else {
-            let mut uf = U2FHIDCont {
-                cid: dev.get_cid(),
-                seq: sequence,
-                data: [0; CONT_DATA_SIZE],
-            };
-            set_data(&mut uf.data, &mut data_itr, CONT_DATA_SIZE);
+            // let mut uf = U2FHIDCont {
+            //     cid: dev.get_cid(),
+            //     seq: sequence,
+            //     data: [0; CONT_DATA_SIZE],
+            // };
+            // set_data(&mut uf.data, &mut data_itr, CONT_DATA_SIZE);
+            // sequence += 1;
+            // frame[1..].copy_from_slice(to_u8_array(&uf));
+            frame[1..5].copy_from_slice(dev.get_cid().as_ref());
+            frame[5] = sequence;
+            set_data(frame[6..CONT_DATA_SIZE+6].as_mut(), &mut data_itr, CONT_DATA_SIZE);
+            // frame[6..send.len()+6].copy_from_slice(send);
             sequence += 1;
-            frame[1..].copy_from_slice(to_u8_array(&uf));
         }
 
         if log_enabled!(log::LogLevel::Trace) {
@@ -453,26 +466,33 @@ where
     T: U2FDevice + Read + Write,
 {
     // TODO: Check send length to make sure it's < 2^16
-    let header = U2FAPDUHeader {
-        cla: 0,
-        ins: cmd,
-        p1: p1,
-        p2: 0, // p2 is always 0, at least, for our requirements.
-        lc: [
-            0, // lc[0] should always be 0
-            (send.len() >> 8) as u8,
-            (send.len() & 0xff) as u8,
-        ],
-    };
+    // let header = U2FAPDUHeader {
+    //     cla: 0,
+    //     ins: cmd,
+    //     p1: p1,
+    //     p2: 0, // p2 is always 0, at least, for our requirements.
+    //     lc: [
+    //         0, // lc[0] should always be 0
+    //         (send.len() >> 8) as u8,
+    //         (send.len() & 0xff) as u8,
+    //     ],
+    // };
     // Size of header, plus data, plus 2 0 bytes at the end for maximum return
     // size.
-    let mut data_vec: Vec<u8> = vec![0; std::mem::size_of::<U2FAPDUHeader>() + send.len() + 2];
-    let header_raw: &[u8] = to_u8_array(&header);
-    data_vec[0..U2FAPDUHEADER_SIZE].copy_from_slice(&header_raw);
+    // let mut data_vec: Vec<u8> = vec![0; U2FAPDUHEADER_SIZE + send.len() + 2];
+    let mut data_vec: Vec<u8> = vec![0; U2FAPDUHEADER_SIZE + send.len()];
+
+    // let header_raw: &[u8] = to_u8_array(&header);
+    // data_vec[0..U2FAPDUHEADER_SIZE].copy_from_slice(&header_raw);
+    data_vec[0] = 0;
+    data_vec[1] = cmd;
+    data_vec[2] = p1;
+    data_vec[3] = 0; // p2 is always 0, at least, for our requirements.
+    data_vec[4] = 0; // lc[0] should always be 0
+    data_vec[5] = (send.len() >> 8) as u8;
+    data_vec[6] = (send.len() & 0xff) as u8;
     data_vec[U2FAPDUHEADER_SIZE..(send.len() + U2FAPDUHEADER_SIZE)].copy_from_slice(&send);
-    let x = sendrecv(dev, U2FHID_MSG, &data_vec);
-    trace!("send_apdu sendrecv finished {:?}", x);
-    x
+    sendrecv(dev, U2FHID_MSG, &data_vec)
 }
 
 #[cfg(test)]
