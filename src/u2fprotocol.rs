@@ -472,7 +472,9 @@ where
     let header_raw: &[u8] = to_u8_array(&header);
     data_vec[0..U2FAPDUHEADER_SIZE].copy_from_slice(&header_raw);
     data_vec[U2FAPDUHEADER_SIZE..(send.len() + U2FAPDUHEADER_SIZE)].copy_from_slice(&send);
-    sendrecv(dev, U2FHID_MSG, &data_vec)
+    let x = sendrecv(dev, U2FHID_MSG, &data_vec);
+    trace!("send_apdu sendrecv finished {:?}", x);
+    x
 }
 
 #[cfg(test)]
