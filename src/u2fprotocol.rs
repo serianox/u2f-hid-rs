@@ -90,9 +90,7 @@ fn from_u8_array<T: Sized>(arr: &[u8]) -> &T {
             std::mem::size_of::<T>()
         );
     }
-    let x = unsafe { &*(arr.as_ptr() as *const T) };
-    trace!("from_u8_array exit");
-    x
+    unsafe { &*(arr.as_ptr() as *const T) }
 }
 
 fn set_data(data: &mut [u8], itr: &mut std::slice::Iter<u8>, max: usize) {
