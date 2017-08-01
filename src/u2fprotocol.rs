@@ -83,7 +83,6 @@ fn to_u8_array<T>(non_ptr: &T) -> &[u8] {
 }
 
 fn from_u8_array<T>(arr: &[u8]) -> &T {
-    trace!("from_u8_array enter");
     if arr.len() > std::mem::size_of::<T>() {
         panic!(
             "from_u8_array attempting to overrun buffer, {} > {}",
@@ -91,9 +90,7 @@ fn from_u8_array<T>(arr: &[u8]) -> &T {
             std::mem::size_of::<T>()
         );
     }
-    let x = unsafe { &*(arr.as_ptr() as *const T) };
-    trace!("from_u8_array exit");
-    x
+    unsafe { &*(arr.as_ptr() as *const T) }
 }
 
 fn set_data(data: &mut [u8], itr: &mut std::slice::Iter<u8>, max: usize) {
@@ -213,8 +210,6 @@ where
     register_data.extend(challenge);
     register_data.extend(application);
 
-    // trace!("u2f_register register_resp start");
-
     let register_resp = send_apdu(
         dev,
         U2F_REGISTER,
@@ -222,15 +217,11 @@ where
         &register_data,
     )?;
 
-    // trace!("u2f_register register_resp completed");
-
     if register_resp.len() != 2 {
         // Real data, we're done
-        // trace!("u2f_register register_resp!=2"); // FIX
         return Ok(register_resp);
     }
 
-    // trace!("u2f_register status_word_to_error"); // IMPORTANT PRINT
     match status_word_to_error(register_resp[0], register_resp[1]) {
         None => Ok(Vec::new()),
         Some(e) => Err(e),
@@ -267,17 +258,13 @@ where
     sign_data.extend(key_handle);
 
     let flags = U2F_REQUEST_USER_PRESENCE;
-    trace!("u2f_sign sign_resp start");
     let sign_resp = send_apdu(dev, U2F_AUTHENTICATE, flags, &sign_data)?;
-    trace!("u2f_sign sign_resp completed");
 
     if sign_resp.len() != 2 {
         // Real data, let's bail out here
-        trace!("u2f_sign real data bail");
         return Ok(sign_resp);
     }
 
-    trace!("u2f_sign status_word_to_error");
     match status_word_to_error(sign_resp[0], sign_resp[1]) {
         None => Ok(Vec::new()),
         Some(e) => Err(e),
@@ -432,7 +419,6 @@ where
         }
         recvlen += CONT_DATA_SIZE;
     }
-    trace!("Recv loop end, data: {:?}", data);
     Ok(data)
 }
 
@@ -468,12 +454,9 @@ where
     // size.
     let mut data_vec: Vec<u8> = vec![0; std::mem::size_of::<U2FAPDUHeader>() + send.len() + 2];
     let header_raw: &[u8] = to_u8_array(&header);
-    data_vec[0..U2FAPDUHEADER_SIZE].clone_from_slice(&header_raw);
-    data_vec[U2FAPDUHEADER_SIZE..(send.len() + U2FAPDUHEADER_SIZE)].clone_from_slice(&send);
-    trace!("send_apdu about to sendrecv");
-    let x = sendrecv(dev, U2FHID_MSG, &data_vec);
-    trace!("send_apdu sendrecv finished {:?}", x);
-    x
+    data_vec[0..U2FAPDUHEADER_SIZE].copy_from_slice(&header_raw);
+    data_vec[U2FAPDUHEADER_SIZE..(send.len() + U2FAPDUHEADER_SIZE)].copy_from_slice(&send);
+    sendrecv(dev, U2FHID_MSG, &data_vec)
 }
 
 #[cfg(test)]
