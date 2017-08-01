@@ -51,9 +51,14 @@ impl Monitor {
                     let device_set = unsafe { IOHIDManagerCopyDevices(manager.get()) };
                     if !device_set.is_null() {
                         let num_devices = unsafe { CFSetGetCount(device_set) };
-                        let mut devices : Vec<IOHIDDeviceRef> = Vec::with_capacity(num_devices as usize);
-                        unsafe { CFSetGetValues(device_set, devices.as_mut_ptr() as *mut *const c_void); }
-                        unsafe { devices.set_len(num_devices as usize); }
+                        let mut devices: Vec<IOHIDDeviceRef> =
+                            Vec::with_capacity(num_devices as usize);
+                        unsafe {
+                            CFSetGetValues(device_set, devices.as_mut_ptr() as *mut *const c_void);
+                        }
+                        unsafe {
+                            devices.set_len(num_devices as usize);
+                        }
                         unsafe { CFRelease(device_set as *mut libc::c_void) };
 
                         // TODO
@@ -61,12 +66,15 @@ impl Monitor {
 
                         // Remove devices that are gone.
                         for id in stored.difference(&devices) {
-                            tx.send(Event::Remove(IOHIDDeviceID::from_ref(*id))).map_err(to_io_err)?;
+                            tx.send(Event::Remove(IOHIDDeviceID::from_ref(*id)))
+                                .map_err(to_io_err)?;
                         }
 
                         // Add devices that were plugged in.
                         for id in devices.difference(&stored) {
-                            tx.send(Event::Add(IOHIDDeviceID::from_ref(*id))).map_err(to_io_err)?;
+                            tx.send(Event::Add(IOHIDDeviceID::from_ref(*id))).map_err(
+                                to_io_err,
+                            )?;
                         }
 
                         // Remember the new set.

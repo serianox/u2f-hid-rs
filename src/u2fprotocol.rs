@@ -78,11 +78,11 @@ pub trait U2FDevice {
 // Utility Functions
 ////////////////////////////////////////////////////////////////////////
 
-fn to_u8_array<T>(non_ptr: &T) -> &[u8] {
+fn to_u8_array<T: Sized>(non_ptr: &T) -> &[u8] {
     unsafe { slice::from_raw_parts(non_ptr as *const T as *const u8, mem::size_of::<T>()) }
 }
 
-fn from_u8_array<T>(arr: &[u8]) -> &T {
+fn from_u8_array<T: Sized>(arr: &[u8]) -> &T {
     if arr.len() > std::mem::size_of::<T>() {
         panic!(
             "from_u8_array attempting to overrun buffer, {} > {}",
@@ -90,7 +90,9 @@ fn from_u8_array<T>(arr: &[u8]) -> &T {
             std::mem::size_of::<T>()
         );
     }
-    unsafe { &*(arr.as_ptr() as *const T) }
+    let x = unsafe { &*(arr.as_ptr() as *const T) };
+    trace!("from_u8_array exit");
+    x
 }
 
 fn set_data(data: &mut [u8], itr: &mut std::slice::Iter<u8>, max: usize) {
@@ -378,7 +380,14 @@ where
         data = Vec::with_capacity(datalen);
 
         if log_enabled!(log::LogLevel::Trace) {
-            trace!("USB recv info_frame: {:?} cmd={} bc={},{} len={}", info_frame.cid, info_frame.cmd, info_frame.bcnth, info_frame.bcntl, datalen);
+            trace!(
+                "USB recv info_frame: {:?} cmd={} bc={},{} len={}",
+                info_frame.cid,
+                info_frame.cmd,
+                info_frame.bcnth,
+                info_frame.bcntl,
+                datalen
+            );
         }
 
         let clone_len: usize;
@@ -397,7 +406,13 @@ where
         dev.read(&mut frame)?;
         if log_enabled!(log::LogLevel::Trace) {
             let parts: Vec<String> = frame.iter().map(|byte| format!("{:02x}", byte)).collect();
-            trace!("USB read: seq#{} (rcvLen={}, dataLen={}): {}", sequence, recvlen, datalen, parts.join(""));
+            trace!(
+                "USB read: seq#{} (rcvLen={}, dataLen={}): {}",
+                sequence,
+                recvlen,
+                datalen,
+                parts.join("")
+            );
         }
 
         let cont_frame: &U2FHIDCont;
@@ -419,6 +434,7 @@ where
         }
         recvlen += CONT_DATA_SIZE;
     }
+    trace!("Recv loop end, data: {:?}", data);
     Ok(data)
 }
 
