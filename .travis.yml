@@ -32,6 +32,11 @@ before_install:
   - cargo install cargo-update || true
   - cargo install-update cargo-update
   - cargo install-update rustfmt
+  - |
+    if [ "$TRAVIS_RUST_VERSION" == "nightly" ] ; then
+      cargo install-update clippy
+      #export RUSTFLAGS="-Z sanitizer=address"
+    fi
   - cargo install-update cargo-kcov
   - mkdir -p .build-kcov && cd $_ && cargo kcov --print-install-kcov-sh | sh
 
@@ -43,6 +48,10 @@ script:
     fi
   - |
   - cargo fmt -- --write-mode=diff
+  - |
+    if [ "$TRAVIS_RUST_VERSION" == "nightly" ] ; then
+      cargo clippy
+    fi
   - cargo build --verbose
   - cargo test --verbose
   - cargo kcov --verbose
