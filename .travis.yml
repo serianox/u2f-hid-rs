@@ -29,22 +29,21 @@ before_install:
   - pkg-config --list-all
   - pkg-config --libs libudev
   - pkg-config --modversion libudev
-  - cargo install cargo-update || true
-  - cargo install-update cargo-update
-  - cargo install-update rustfmt
+  - cargo install cargo-update rustfmt cargo-kcov || true
+  - cargo install-update cargo-update rustfmt cargo-kcov
   - |
     if [ "$TRAVIS_RUST_VERSION" == "nightly" ] ; then
+      cargo install clippy || true
       cargo install-update clippy
-      #export RUSTFLAGS="-Z sanitizer=address"
+      export RUSTFLAGS="-Z sanitizer=address"
     fi
-  - cargo install-update cargo-kcov
   - mkdir -p .build-kcov && cd $_ && cargo kcov --print-install-kcov-sh | sh
 
 script:
   - |
     if [ "$TRAVIS_RUST_VERSION" == "nightly" ] ; then
       export ASAN_OPTIONS="detect_odr_violation=1:leak_check_at_exit=0:detect_leaks=0"
-      #export RUSTFLAGS="-Z sanitizer=address"
+      export RUSTFLAGS="-Z sanitizer=address"
     fi
   - |
   - cargo fmt -- --write-mode=diff
