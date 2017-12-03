@@ -8,8 +8,12 @@ mod util;
 #[cfg(any(target_os = "linux"))]
 extern crate libudev;
 
-#[cfg(any(target_os = "linux"))]
+#[cfg(all(any(target_os = "linux"), not(feature = "have_pcsc")))]
 #[path = "linux/mod.rs"]
+pub mod platform;
+
+#[cfg(all(any(target_os = "linux"), feature = "have_pcsc"))]
+#[path = "pcsc/mod.rs"]
 pub mod platform;
 
 #[cfg(any(target_os = "macos"))]

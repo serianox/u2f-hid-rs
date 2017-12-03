@@ -12,6 +12,9 @@ core-foundation-sys = "0.3.1"
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = "0.2.8"
 
+[features]
+have_pcsc = ["pcsc"]
+
 [dependencies]
 rand = "0.3"
 log = "0.3"
@@ -20,6 +23,7 @@ libc = "^0.2"
 boxfnonce = "0.0.3"
 runloop = "0.1.0"
 bitflags = "1.0"
+pcsc = { version = "0.1", optional = true }
 
 [dev-dependencies]
 rust-crypto = "^0.2"

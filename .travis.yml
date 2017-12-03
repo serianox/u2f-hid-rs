@@ -18,6 +18,7 @@ addons:
     packages:
       - build-essential
       - libudev-dev
+      - libpcsclite-dev
       - cmake
       - pkg-config
       - libcurl4-openssl-dev
@@ -27,8 +28,8 @@ addons:
 
 before_install:
   - pkg-config --list-all
-  - pkg-config --libs libudev
-  - pkg-config --modversion libudev
+  - pkg-config --libs libudev libpcsclite
+  - pkg-config --modversion libudev libpcsclite
   - cargo install cargo-update rustfmt cargo-kcov || true
   - cargo install-update cargo-update rustfmt cargo-kcov
   - |
